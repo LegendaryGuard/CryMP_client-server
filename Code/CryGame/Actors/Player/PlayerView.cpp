@@ -84,7 +84,7 @@ void CPlayerView::ViewPreProcess(const CPlayer& rPlayer, SViewParams& viewParams
 		m_in.defaultFov = g_pGameCVars->cl_fov;
 
 		m_in.frameTime = min(gEnv->pTimer->GetFrameTime(), 0.1f);
-		viewParams.frameTime = m_in.frameTime; //CryMP frameTime 0 :S
+		viewParams.frameTime = m_in.frameTime; 
 
 		m_in.pCharacter = rPlayer.GetEntity()->GetCharacter(0);
 		m_in.pVehicle = rPlayer.GetLinkedVehicle();
@@ -358,7 +358,7 @@ void CPlayerView::ViewFirstThirdSharedPre(SViewParams& viewParams)
 	// don't blend view when spectating
 	if (m_in.stats_spectatorMode >= CActor::eASM_FirstMPMode && m_in.stats_spectatorMode <= CActor::eASM_LastMPMode)
 	{
-		CPlayer* pPlayer = static_cast<CPlayer*>(g_pGame->GetIGameFramework()->GetIActorSystem()->GetActor(m_in.entityId));
+		CPlayer* pPlayer = CPlayer::FromIActor(g_pGame->GetIGameFramework()->GetIActorSystem()->GetActor(m_in.entityId));
 		if (pPlayer)
 			pPlayer->SupressViewBlending();
 	}
@@ -500,6 +500,7 @@ void CPlayerView::ViewThirdPerson(SViewParams& viewParams)
 		}
 
 		float oldLen = offsetY.len();
+		float oldLenX = offsetX.len();
 
 		Vec3 start = m_io.baseQuat * m_io.eyeOffsetView + viewParams.position + offsetX + offsetZ;
 		if (gEnv->pPhysicalWorld->RayWorldIntersection(start, offsetY, ent_static | ent_terrain | ent_rigid,
@@ -507,6 +508,13 @@ void CPlayerView::ViewThirdPerson(SViewParams& viewParams)
 		{
 			offsetY = hit.pt - start;
 			current.y = current.y * (hit.dist / oldLen);
+		}
+		
+		if (gEnv->pPhysicalWorld->RayWorldIntersection(start, offsetX, ent_static | ent_terrain | ent_rigid,
+			rwi_ignore_noncolliding | rwi_stop_at_pierceable, &hit, 1, pSkipEntities, nSkip))
+		{
+			offsetX = hit.pt - start;
+			current.x = current.x * (hit.dist / oldLenX);
 		}
 	}
 
@@ -846,13 +854,13 @@ void CPlayerView::ViewFirstPerson(SViewParams& viewParams)
 
 void CPlayerView::ViewVehicle(SViewParams& viewParams)
 {
-	auto* pVehicle = m_in.pVehicle;
+	IVehicle* pVehicle = m_in.pVehicle;
 	if (pVehicle)
 	{
 		if (m_in.isFirstPersonSpecTarget)
 		{
 			//m_io.bUsePivot = true;
-			const auto* pIActor = g_pGame->GetIGameFramework()->GetIActorSystem()->GetActor(m_in.entityId);
+			/*const auto* pIActor = g_pGame->GetIGameFramework()->GetIActorSystem()->GetActor(m_in.entityId);
 			if (!pIActor)
 				return;
 			auto* pTarget = (CPlayer*)pIActor;
@@ -927,6 +935,39 @@ void CPlayerView::ViewVehicle(SViewParams& viewParams)
 			{
 				viewParams.position.z = viewParams.position.z + zOffset;
 			}
+			*/
+
+			if (IVehicleSeat* pSeat = m_in.pVehicle->GetSeatForPassenger(m_in.entityId))
+			{
+				const int currSeatViewId = 1;
+				CPlayer* pPlayer = CPlayer::FromIActor(g_pGame->GetIGameFramework()->GetIActorSystem()->GetActor(m_in.entityId));
+				if (!pPlayer)
+					return;
+
+				//CryMP: Check if player is switching seat
+				if (pPlayer->m_currentSeatId != pSeat->GetSeatId())
+				{
+					IVehicleView* pNewView = pSeat->GetView(currSeatViewId);
+					if (pNewView)
+					{
+						pNewView->OnStartUsing(pPlayer->GetEntityId());
+					}
+					if (IVehicleMovement* pMovement = pVehicle->GetMovement())
+					{
+						SVehicleMovementEventParams params;
+						params.fValue = 1.0f;
+						pMovement->OnEvent(IVehicleMovement::eVME_PlayerSwitchView, params);
+					}
+
+					pPlayer->m_currentSeatId = pSeat->GetSeatId();
+				}
+				if (IVehicleView* pView = pSeat->GetView(currSeatViewId))
+				{
+					pView->UpdateView(viewParams, m_in.entityId);
+				
+					//viewParams.viewID = 2;
+				}
+			}
 		}
 		else
 		{
@@ -976,7 +1017,7 @@ void CPlayerView::ViewSpectatorTarget(SViewParams& viewParams)
 	// if freelook allowed, get orientation and distance from player entity
 	if (g_pGameCVars->g_spectate_FixedOrientation == 0)
 	{
-		CPlayer* pThisPlayer = static_cast<CPlayer*>(g_pGame->GetIGameFramework()->GetIActorSystem()->GetActor(m_in.entityId));
+		CPlayer* pThisPlayer = CPlayer::FromIActor(g_pGame->GetIGameFramework()->GetIActorSystem()->GetActor(m_in.entityId));
 		if (!pThisPlayer)
 			return;
 		Matrix34 ownOrientation = pThisPlayer->GetEntity()->GetWorldTM();

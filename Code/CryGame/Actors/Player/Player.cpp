@@ -1011,10 +1011,9 @@ void CPlayer::Update(SEntityUpdateContext& ctx, int updateSlot)
 		}
 
 		// also, after the player we are spectating dies (or goes into spectator mode), wait 3s then switch to new target
-		CActor* pCActor = static_cast<CActor*>(pActor);
-		if (pCActor && pCActor->GetActorClass() == CPlayer::GetActorClassType())
+		CPlayer* pTargetPlayer = CPlayer::FromIActor(pActor);
+		if (pTargetPlayer)
 		{
-			CPlayer* pTargetPlayer = static_cast<CPlayer*>(pCActor);
 			float timeSinceDeath = gEnv->pTimer->GetFrameStartTime().GetSeconds() - pTargetPlayer->GetDeathTime();
 			if (pTargetPlayer && (pTargetPlayer->GetHealth() <= 0 && timeSinceDeath > 3.0f) || pTargetPlayer->GetSpectatorMode() != eASM_None)
 			{
@@ -1966,6 +1965,10 @@ IEntity* CPlayer::LinkToVehicle(EntityId vehicleId)
 		// don't interpolate back from vehicle camera (otherwise you see your own legs)
 		if (IsClient())
 			SupressViewBlending();
+		else
+		{
+			m_currentSeatId = -1;
+		}
 	}
 
 	return pLinkedEntity;
@@ -5346,7 +5349,7 @@ void CPlayer::ActivateNanosuit(bool active)
 IActor* CPlayer::GetSpectatorTargetPlayer()
 {
 	const EntityId sTargetId = GetSpectatorTarget();
-	if (sTargetId)
+	if (sTargetId && GetPhysicsProfile() == eAP_Spectator)
 	{
 		return m_pGameFramework->GetIActorSystem()->GetActor(sTargetId);
 	}
@@ -5474,7 +5477,7 @@ void CPlayer::UpdateFpSpectator(EntityId oldTargetId, EntityId newTargetId)
 	if (oldTargetId)
 	{
 		//Leaving spectator target
-		CPlayer* pOldTarget = static_cast<CPlayer*>(m_pGameFramework->GetIActorSystem()->GetActor(oldTargetId));
+		CPlayer* pOldTarget = CPlayer::FromIActor(m_pGameFramework->GetIActorSystem()->GetActor(oldTargetId));
 		if (pOldTarget && pOldTarget->IsFpSpectatorTarget())
 		{
 			pOldTarget->SetFpSpectatorTarget(false);
@@ -5487,7 +5490,7 @@ void CPlayer::UpdateFpSpectator(EntityId oldTargetId, EntityId newTargetId)
 
 	if (newTargetId)
 	{
-		CPlayer* pNewTarget = static_cast<CPlayer*>(m_pGameFramework->GetIActorSystem()->GetActor(newTargetId));
+		CPlayer* pNewTarget = CPlayer::FromIActor(m_pGameFramework->GetIActorSystem()->GetActor(newTargetId));
 		if (pNewTarget)
 		{
 			CPlayerInput* pPlayerInput = static_cast<CPlayerInput*>(GetPlayerInput());
