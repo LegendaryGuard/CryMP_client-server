@@ -11,6 +11,7 @@
 #include "Library/DLL.h"
 
 #include "CrashLogger.h"
+#include "CryMemoryManager.h"
 #include "Launcher.h"
 
 #include "config.h"
@@ -441,6 +442,9 @@ static void DumpExceptionInfo(const EXCEPTION_RECORD *exception)
 				break;
 			}
 		}
+
+		Log("Allocation Callstack:");
+		Log(CryMemoryManager::GetCallstack(address));
 	}
 }
 

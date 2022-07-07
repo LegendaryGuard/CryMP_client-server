@@ -237,6 +237,8 @@ void Launcher::StartEngine()
 		throw Error("CryENGINE initialization failed!");
 	}
 
+	CryMemoryManager::RegisterCVars();
+
 	// initialize the multiplayer client
 	gClient->Init(pGameFramework);
 
