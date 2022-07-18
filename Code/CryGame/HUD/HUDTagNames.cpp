@@ -191,7 +191,6 @@ void CHUDTagNames::AddEnemyTagName(EntityId uiEntityId)
 
 void CHUDTagNames::DrawTagName(IActor* pActor, bool bLocalVehicle)
 {
-	CRY_ASSERT(pActor);
 	if (!pActor)
 		return;
 
@@ -271,7 +270,7 @@ void CHUDTagNames::DrawTagName(IActor* pActor, bool bLocalVehicle)
 	}
 
 	//CryMP: Always draw killer tag
-	const EntityId killerId = pClientActor->GetSpectatorTarget();
+	const EntityId killerId = pClientActor->GetDeathCamTarget();
 	if (killerId == pActor->GetEntityId() && pClientActor->GetPhysicsProfile() == eAP_Ragdoll)
 	{
 		bDrawOnTop = true;
@@ -304,7 +303,6 @@ void CHUDTagNames::DrawTagName(IActor* pActor, bool bLocalVehicle)
 
 void CHUDTagNames::DrawTagName(IVehicle* pVehicle)
 {
-	CRY_ASSERT(pVehicle);
 	if (!pVehicle)
 		return;
 
@@ -406,6 +404,13 @@ void CHUDTagNames::DrawTagName(IVehicle* pVehicle)
 			rgbTagName = COLOR_DEAD;
 		}
 
+		//CryMP: Always draw killer tag
+		const EntityId killerId = pClientActor->GetDeathCamTarget();
+		if (killerId == pActor->GetEntityId() && pClientActor->GetPhysicsProfile() == eAP_Ragdoll)
+		{
+			bDrawOnTop = true;
+		}
+
 		m_tagNamesVector.resize(m_tagNamesVector.size() + 1);
 
 		STagName* pTagName = &m_tagNamesVector[m_tagNamesVector.size() - 1];
@@ -449,10 +454,18 @@ void CHUDTagNames::Update()
 		if (pActor->IsClient() && (!gEnv->bMultiplayer || !pActor->IsThirdPerson()))
 			continue;
 
-		const EntityId killerId = pClientActor->GetSpectatorTarget();
-		if (killerId && pClientActor->GetPhysicsProfile() == eAP_Ragdoll)
-		{		
-			DrawTagName(pActor);
+		const EntityId killerId = pClientActor->GetDeathCamTarget();
+		if (killerId == pActor->GetEntityId() && pClientActor->GetPhysicsProfile() == eAP_Ragdoll)
+		{	
+			IVehicle* pKillerVehicle = pActor->GetLinkedVehicle();
+			if (pKillerVehicle)
+			{
+				DrawTagName(pKillerVehicle);
+			}
+			else
+			{ 
+				DrawTagName(pActor);
+			}
 			continue;
 		}
 		// Skip enemies, they need to be added only when shot

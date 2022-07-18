@@ -271,12 +271,6 @@ bool CPlayer::Init(IGameObject* pGameObject)
 	if (GetEntityId() == LOCAL_PLAYER_ENTITY_ID && !m_pNanoSuit) //client player always has a nanosuit (else the HUD doesn't work)
 		m_pNanoSuit = new CNanoSuit();
 
-	if (IEntityRenderProxy* pProxy = (IEntityRenderProxy*)GetEntity()->GetProxy(ENTITY_PROXY_RENDER))
-	{
-		if (IRenderNode* pRenderNode = pProxy->GetRenderNode())
-			pRenderNode->SetRndFlags(ERF_REGISTER_BY_POSITION, true);
-	}
-
 	return true;
 }
 
@@ -3862,8 +3856,31 @@ void CPlayer::PostPhysicalize()
 		}
 	}
 
-	//	if (m_pGameFramework->IsMultiplayer())
-	//		GetGameObject()->ForceUpdateExtension(this, 0);
+	//Ghost Sector 
+	if (!IsClient())
+	{
+		if (IEntityRenderProxy* pProxy = (IEntityRenderProxy*)GetEntity()->GetProxy(ENTITY_PROXY_RENDER))
+		{
+			if (IRenderNode* pRenderNode = pProxy->GetRenderNode())
+			{
+				if (!((pRenderNode->GetRndFlags() & ERF_RENDER_ALWAYS) == ERF_RENDER_ALWAYS))
+				{
+					//CryMP: Added ERF_RENDER_ALWAYS
+					const auto CryMPflags = pRenderNode->GetRndFlags() | ERF_RENDER_ALWAYS;
+					pRenderNode->SetRndFlags(CryMPflags, true);
+				}
+				pRenderNode->SetViewDistUnlimited(); 
+			}
+			if (ICharacterInstance* pCharacter = GetEntity()->GetCharacter(0))
+			{
+				if (!((pCharacter->GetFlags() & CS_FLAG_UPDATE_ALWAYS) == CS_FLAG_UPDATE_ALWAYS))
+				{
+					//CryMP: Added CS_FLAG_UPDATE_ALWAYS
+					pCharacter->SetFlags(pCharacter->GetFlags() | CS_FLAG_UPDATE_ALWAYS);
+				}
+			}
+		}
+	}
 }
 
 void CPlayer::UpdateAnimGraph(IAnimationGraphState* pState)

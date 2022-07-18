@@ -493,6 +493,7 @@ void CHUDRadar::Update(float fDeltaTime)
 
 			float fAngle = pActor->GetAngles().z - pEntity->GetWorldAngles().z;
 			float fAlpha = 0.85f;
+			
 			float sizeScale = GetRadarSize(pEntity, pActor);
 
 			//in flash
@@ -501,10 +502,16 @@ void CHUDRadar::Update(float fDeltaTime)
 			float dimY = (m_fY + fRadarSizeOverTwo) - lowerBoundY;
 
 			int playerTeam = m_pGameRules->GetTeam(pActor->GetEntityId());
+			const auto friendOrFoe = FriendOrFoe(gEnv->bMultiplayer, playerTeam, pEntity,
+				m_pGameRules);
 
+			//CryMP: Brighter red color for Enemy
+			if (friendOrFoe == EEnemy)
+			{
+				fAlpha = 1.0f;
+			}
 			numOfValues += ::FillUpDoubleArray(&entityValues, temp.m_id, temp.m_type, (fX - lowerBoundX) / dimX, (fY - lowerBoundY) / dimY,
-				180.0f + RAD2DEG(fAngle), FriendOrFoe(gEnv->bMultiplayer, playerTeam, pEntity,
-					m_pGameRules), sizeScale * 25.0f, fAlpha * 100.0f);
+				180.0f + RAD2DEG(fAngle), friendOrFoe, sizeScale * 25.0f, fAlpha * 100.0f);
 		}
 	}
 
@@ -1256,9 +1263,36 @@ void CHUDRadar::UpdateScanner(float frameTime)
 			m_scannerObjectID = 0;
 		}
 
-		if (m_scannerTimer < 0.3f) //make them blink
+		if (m_scannerTimer < 0.8f) //make them blink
 		{
-			m_pHUD->GetSilhouettes()->SetSilhouette(gEnv->pEntitySystem->GetEntity(m_scannerObjectID), 0.8f, 0.8f, 1.0f, 0.5f, -1.0f);
+			IEntity* pEntity = gEnv->pEntitySystem->GetEntity(m_scannerObjectID);
+			if (pEntity)
+			{
+				float r = 0.8f;
+				float g = 0.8f;
+				float b = 1.0f;
+				//CryMP: Custom colors for tagging objects with binoculars
+				//Neutral: White
+				//Team: Blue
+				//Enemy: Orange-Red
+				if (gEnv->bMultiplayer)
+				{
+					if (m_pGameRules->IsHostile(m_scannerObjectID, m_pClientActor->GetEntityId()) && !m_pGameRules->IsNeutral(m_scannerObjectID))
+					{
+						//ColorF V(0.8f, 0.498039f, 0.196078f);
+						r = 1.0f;
+						g = 0.1f;
+						b = 0.0f;
+					}
+					else if (m_pGameRules->IsSameTeam(m_scannerObjectID, m_pClientActor->GetEntityId()))
+					{
+						r = 0.137255f;
+						g = 0.137255f;
+						b = 0.556863f;
+					}
+				}
+				m_pHUD->GetSilhouettes()->SetSilhouette(pEntity, r, g, b, 0.5f, -1.0f);
+			}
 		}
 	}
 
@@ -2793,7 +2827,7 @@ EntityId CHUDRadar::RayCastBinoculars(CPlayer* pPlayer, ray_hit* pRayHit)
 	if (!pPhysEnt)
 		return 0;
 
-	static const int obj_types = ent_rigid|ent_sleeping_rigid|ent_living; //CryMP optimization: these are enough, default was ent_all
+	static const int obj_types = ent_all;
 	static const unsigned int flags = rwi_pierceability(1);
 
 	right = right * g_pGameCVars->hud_binocsScanningWidth;
@@ -3030,8 +3064,10 @@ bool CHUDRadar::CheckObjectMultiplayer(EntityId id)
 	// also, don't allow tagging of unoccupied vehicles
 	if (IVehicle* pVehicle = m_pVehicleSystem->GetVehicle(id))
 	{
-		if (!pVehicle->IsPlayerDriving(false)) //CryMP: False was missing, now you can tag vehicles with drivers
-			return false;
+		//CryMP 18.07.22 Allow tagging all vehicles 
+
+		//if (!pVehicle->IsPlayerDriving(false)) //CryMP: False was missing, now you can tag vehicles with drivers
+		//	return false;
 	}
 
 	// don't tag dead players

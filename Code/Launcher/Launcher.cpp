@@ -191,6 +191,7 @@ void Launcher::PatchEngine()
 
 	if (m_CryNetwork)
 	{
+		Patch::FixFileCheckCrash(m_CryNetwork);
 		Patch::FixInternetConnect(m_CryNetwork);
 		Patch::EnablePreordered(m_CryNetwork);
 		Patch::AllowSameCDKeys(m_CryNetwork);
@@ -210,7 +211,10 @@ void Launcher::PatchEngine()
 			Patch::Disable3DNow(m_CrySystem);
 		}
 
-		ReplaceScriptSystem(m_CrySystem);
+		if (!CmdLine::HasArg("-oldss"))
+		{
+			ReplaceScriptSystem(m_CrySystem);
+		}
 	}
 }
 

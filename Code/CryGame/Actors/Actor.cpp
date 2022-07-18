@@ -398,20 +398,6 @@ void CActor::PostInit(IGameObject* pGameObject)
 		ICharacterInstance* pCharacter = GetEntity()->GetCharacter(0);
 		if (pCharacter)
 			pCharacter->GetISkeletonPose()->SetAimIKFadeOut(0);
-
-	    //Reenabled 03/06/22
-		//CryMP: Fix Ghost #4
-		IEntityRenderProxy* pProxy = static_cast<IEntityRenderProxy*>(GetEntity()->GetProxy(ENTITY_PROXY_RENDER));
-		if (pProxy && pProxy->GetRenderNode())
-		{
-			pProxy->GetRenderNode()->SetViewDistUnlimited(); //default is 100m
-			//pProxy->GetRenderNode()->SetLodRatio(255);
-		}
-		if (!IsClient())
-		{
-			if (ICharacterInstance* pCharacter = GetEntity()->GetCharacter(0))
-				pCharacter->SetFlags(pCharacter->GetFlags() | CS_FLAG_UPDATE_ALWAYS);
-		}
 	}
 
 	InitActorAttachments();
@@ -3503,7 +3489,8 @@ void CActor::NetKill(EntityId shooterId, uint16 weaponClassId, int damage, int m
 		{
 			if (g_pGameCVars->g_deathCam && shooterId != GetEntityId())
 			{
-				SetSpectatorTarget(shooterId);
+				//CryMP: new function to not cause any confusion, and possible bugs
+				SetDeathCamTarget(shooterId);
 			}
 
 			if (!IsFpSpectatorTarget())
